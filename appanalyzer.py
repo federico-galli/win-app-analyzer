@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 #v0.2 29lug19
-#Read a list of windows generated logfiles and output a parsed list.
+#Read a list of windows generated logfiles (formatted ad user.name_logfile.txt) 
+#and output a parsed list.
 #We are looking for not listed software in app_match, sort of anti installer.
 
 #Depends on pysmb: pip3 install --user pysmb
@@ -14,6 +15,14 @@ import os
 import tempfile
 from smb.SMBConnection import SMBConnection
 
+smbusername='testuser'
+smbpassword=smbusername
+smbclientname='testdc'
+smbdomain='testdomain.internal'
+smbshare='resources'
+smbpath='log/'
+
+#list of permitted apps
 app_match=["name","microsoft","google","python","adobe","apple","office",
 "windows","intel","dell","vnc","vpn","icloud","bonjour","smartbyte","calibre",
 "texturepacker","mtg arena","ibm aspera connect","spark ar studio","affinity designer",
@@ -41,14 +50,14 @@ def parselog(log):
   parsedlog = list(filter(None, parsedlog)) # clean empty elements
   return parsedlog
 
-#open smb connection to dc01
+#open smb connection to domain controller
 def opensmbconn():
-  conn = SMBConnection('username', 'password', 'appanalyzer', 'DC', domain='domain.internal', use_ntlm_v2=True)
-  assert conn.connect('dc.domain.internal')
+  conn = SMBConnection(smbusername, smbpassword, 'appanalyzer', smbclientname , domain=smbdomain, use_ntlm_v2=True)
+  assert conn.connect(smbclientname + '.' + smbdomain)
   return conn
 
 #list txt logs on smb destination
-def getloglist(shared='Resources',path='/log'):
+def getloglist(shared=smbshare,path=smbpath):
   conn = opensmbconn()
   results = conn.listPath(shared, path, pattern='*.txt')
   conn.close()
@@ -58,7 +67,7 @@ def getloglist(shared='Resources',path='/log'):
 def readsmbfile(x):
   file_obj = tempfile.NamedTemporaryFile()
   conn = opensmbconn()
-  file_attributes, filesize = conn.retrieveFile('Resources', 'log/'+str(x.filename), file_obj)
+  file_attributes, filesize = conn.retrieveFile(smbshare, smbpath+str(x.filename), file_obj)
   conn.close()
   file_obj.seek(0,0)
   contents=file_obj.read()
